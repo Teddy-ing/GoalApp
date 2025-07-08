@@ -47,7 +47,7 @@
   - [x] 1.5 Create initial folder structure (src/components, contexts, db, hooks, utils)
   - [x] 1.6 Install required npm packages (react-beautiful-dnd, react-grid-layout, immer)
 
-- [ ] 2.0 Implement database layer with Tauri SQLite plugin
+- [x] 2.0 Implement database layer with Tauri SQLite plugin
   - [x] 2.1 Add tauri-plugin-sqlite to Rust dependencies in Cargo.toml
   - [x] 2.2 Create database schema with goals, checklist_items, layout, and notes tables
   - [x] 2.3 Implement Rust command handlers in commands.rs (add_goal, increment_goal, query_layout, etc.)
