@@ -36,7 +36,7 @@
 
 ## Tasks
 
-- [ ] 1.0 Set up project foundation and development environment
+- [x] 1.0 Set up project foundation and development environment
   - [x] 1.1 Initialize Tauri + Vite + React project with TypeScript
   - [x] 1.2 Install and configure Tailwind CSS with @tailwindcss/typography
   - [x] 1.3 Set up package.json scripts (dev, build, dist) as specified
