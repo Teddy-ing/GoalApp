@@ -1,6 +1,17 @@
-import { invoke } from '@tauri-apps/api/core';
+import SqlDatabase from '@tauri-apps/plugin-sql';
 
-// TypeScript interfaces matching Rust structs
+// Database instance - will be initialized on first use
+let db: SqlDatabase | null = null;
+
+// Initialize database connection
+async function getDb(): Promise<SqlDatabase> {
+  if (!db) {
+    db = await SqlDatabase.load('sqlite:goals.db');
+  }
+  return db;
+}
+
+// TypeScript interfaces matching database schema
 export interface Goal {
   id?: number;
   title: string;
@@ -52,29 +63,31 @@ export class GoalDB {
     targetValue: number,
     goalType: Goal['goal_type']
   ): Promise<number> {
-    return await invoke<number>('add_goal', {
-      title,
-      description,
-      targetValue,
-      goalType,
-    });
+    const database = await getDb();
+    const result = await database.execute(
+      'INSERT INTO goals (title, description, target_value, goal_type, current_value, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+      [title, description, targetValue, goalType, 0, true]
+    );
+    return result.lastInsertId || 0;
   }
 
   /**
    * Get all active goals from the database
    */
   static async getGoals(): Promise<Goal[]> {
-    return await invoke<Goal[]>('get_goals');
+    const database = await getDb();
+    return await database.select<Goal[]>('SELECT * FROM goals WHERE is_active = ? ORDER BY created_at DESC', [true]);
   }
 
   /**
    * Increment a goal's current value
    */
   static async incrementGoal(goalId: number, amount: number): Promise<void> {
-    return await invoke<void>('increment_goal', {
-      goalId,
-      amount,
-    });
+    const database = await getDb();
+    await database.execute(
+      'UPDATE goals SET current_value = current_value + ?, updated_at = datetime("now") WHERE id = ?',
+      [amount, goalId]
+    );
   }
 
   /**
@@ -86,28 +99,33 @@ export class GoalDB {
     description: string | null,
     targetValue: number
   ): Promise<void> {
-    return await invoke<void>('update_goal', {
-      goalId,
-      title,
-      description,
-      targetValue,
-    });
+    const database = await getDb();
+    await database.execute(
+      'UPDATE goals SET title = ?, description = ?, target_value = ?, updated_at = datetime("now") WHERE id = ?',
+      [title, description, targetValue, goalId]
+    );
   }
 
   /**
    * Soft delete a goal (mark as inactive)
    */
   static async deleteGoal(goalId: number): Promise<void> {
-    return await invoke<void>('delete_goal', {
-      goalId,
-    });
+    const database = await getDb();
+    await database.execute(
+      'UPDATE goals SET is_active = ?, updated_at = datetime("now") WHERE id = ?',
+      [false, goalId]
+    );
   }
 
   /**
    * Reset all daily goals current_value to 0
    */
   static async resetDailyGoals(): Promise<void> {
-    return await invoke<void>('reset_daily_goals');
+    const database = await getDb();
+    await database.execute(
+      'UPDATE goals SET current_value = 0, updated_at = datetime("now") WHERE goal_type = ? AND is_active = ?',
+      ['daily', true]
+    );
   }
 }
 
@@ -121,20 +139,23 @@ export class ChecklistDB {
     title: string,
     orderIndex: number
   ): Promise<number> {
-    return await invoke<number>('add_checklist_item', {
-      goalId,
-      title,
-      orderIndex,
-    });
+    const database = await getDb();
+    const result = await database.execute(
+      'INSERT INTO checklist_items (goal_id, title, order_index, is_completed) VALUES (?, ?, ?, ?)',
+      [goalId, title, orderIndex, false]
+    );
+    return result.lastInsertId || 0;
   }
 
   /**
    * Get all checklist items for a specific goal
    */
   static async getChecklistItems(goalId: number): Promise<ChecklistItem[]> {
-    return await invoke<ChecklistItem[]>('get_checklist_items', {
-      goalId,
-    });
+    const database = await getDb();
+    return await database.select<ChecklistItem[]>(
+      'SELECT * FROM checklist_items WHERE goal_id = ? ORDER BY order_index',
+      [goalId]
+    );
   }
 
   /**
@@ -144,19 +165,22 @@ export class ChecklistDB {
     itemId: number,
     isCompleted: boolean
   ): Promise<void> {
-    return await invoke<void>('toggle_checklist_item', {
-      itemId,
-      isCompleted,
-    });
+    const database = await getDb();
+    await database.execute(
+      'UPDATE checklist_items SET is_completed = ? WHERE id = ?',
+      [isCompleted, itemId]
+    );
   }
 
   /**
    * Delete a checklist item
    */
   static async deleteChecklistItem(itemId: number): Promise<void> {
-    return await invoke<void>('delete_checklist_item', {
-      itemId,
-    });
+    const database = await getDb();
+    await database.execute(
+      'DELETE FROM checklist_items WHERE id = ?',
+      [itemId]
+    );
   }
 }
 
@@ -173,21 +197,19 @@ export class LayoutDB {
     height: number,
     sectionType: LayoutItem['section_type']
   ): Promise<void> {
-    return await invoke<void>('save_layout', {
-      goalId,
-      xPosition,
-      yPosition,
-      width,
-      height,
-      sectionType,
-    });
+    const database = await getDb();
+    await database.execute(
+      'INSERT OR REPLACE INTO layout (goal_id, x_position, y_position, width, height, section_type, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime("now"))',
+      [goalId, xPosition, yPosition, width, height, sectionType]
+    );
   }
 
   /**
    * Get all layout configurations
    */
   static async getLayout(): Promise<LayoutItem[]> {
-    return await invoke<LayoutItem[]>('get_layout');
+    const database = await getDb();
+    return await database.select<LayoutItem[]>('SELECT * FROM layout ORDER BY goal_id');
   }
 }
 
@@ -197,16 +219,20 @@ export class NotesDB {
    * Save notes content (replaces existing notes)
    */
   static async saveNotes(content: string): Promise<void> {
-    return await invoke<void>('save_notes', {
-      content,
-    });
+    const database = await getDb();
+    await database.execute(
+      'INSERT OR REPLACE INTO notes (id, content, updated_at) VALUES (1, ?, datetime("now"))',
+      [content]
+    );
   }
 
   /**
    * Get the current notes content
    */
   static async getNotes(): Promise<Note | null> {
-    return await invoke<Note | null>('get_notes');
+    const database = await getDb();
+    const results = await database.select<Note[]>('SELECT * FROM notes WHERE id = 1');
+    return results.length > 0 ? results[0] : null;
   }
 }
 
