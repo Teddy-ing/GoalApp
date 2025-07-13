@@ -10,7 +10,7 @@
 - `src/utils/` - Utility functions directory
 - `src/utils/databaseInit.ts` - Database initialization utility with health checks and verification
 - `src/utils/resetDailyGoals.ts` - Utility for daily goal reset logic
-- `src/components/GoalCard.tsx` - Component for displaying individual goals with progress
+- `src/components/GoalCard.tsx` - Component for displaying individual goals with progress bar, increment button, and edit/delete menu
 - `src/components/GoalCard.test.tsx` - Unit tests for GoalCard
 - `src/components/GoalSection.tsx` - Wrapper component for goal type sections with drag-drop
 - `src/components/GoalSection.test.tsx` - Unit tests for GoalSection  
@@ -56,7 +56,7 @@
   - [x] 2.6 Implement database initialization on first run (automatic migrations + verification utilities)
 
 - [ ] 3.0 Create React components and UI structure
-  - [ ] 3.1 Build GoalCard component with title, progress bar, increment button, and edit/delete menu
+  - [x] 3.1 Build GoalCard component with title, progress bar, increment button, and edit/delete menu
   - [ ] 3.2 Create GoalSection component with collapsible header and drag-drop list wrapper
   - [ ] 3.3 Implement NotesArea component with textarea and debounced save functionality
   - [ ] 3.4 Build ConfirmDialog component using Tailwind and Headless UI
