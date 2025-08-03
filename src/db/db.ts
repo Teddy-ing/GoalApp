@@ -110,11 +110,24 @@ export class GoalDB {
    * Soft delete a goal (mark as inactive)
    */
   static async deleteGoal(goalId: number): Promise<void> {
+    console.log('GoalDB.deleteGoal called with goalId:', goalId);
     const database = await getDb();
-    await database.execute(
+    const result = await database.execute(
       'UPDATE goals SET is_active = ?, updated_at = datetime("now") WHERE id = ?',
       [false, goalId]
     );
+    console.log('Delete query result:', result);
+    
+    // Verify the goal was actually updated
+    const verifyResult = await database.select<{count: number}[]>(
+      'SELECT COUNT(*) as count FROM goals WHERE id = ? AND is_active = ?',
+      [goalId, false]
+    );
+    console.log('Verification query result:', verifyResult);
+    
+    if (verifyResult.length === 0 || verifyResult[0].count === 0) {
+      throw new Error('Goal was not successfully marked as inactive');
+    }
   }
 
   /**
