@@ -78,7 +78,7 @@
   - [ ] 3.7.2 Improve responsive design for mobile and tablet devices
   - [ ] 3.7.3 Add hover states and smooth transitions
   - [ ] 3.7.4 Polish typography and icon consistency
-
+ 
 - [ ] 3.8 Major UI restructuring and layout changes
   - [ ] 3.8.1 Convert horizontal sections to vertical column layout
   - [ ] 3.8.2 Replace monthly/yearly goals with single 'long-term goals' section
@@ -88,8 +88,9 @@
   - [ ] 3.8.6 Create CompletedTodoSection component for finished todos
   - [ ] 3.8.7 Implement todo database operations and interfaces
   - [ ] 3.8.8 Integrate todo sections into main App.tsx layout
+  - [ ] 3.8.9 Reposition add/edit goal modals to far right sidebar (add on top, edit below)
 
-- [ ] 4.0 Implement state management with Context providers
+- [ ] 4.0 Implement state management with Context providersj
   - [ ] 4.1 Create GoalContext with CRUD operations (addGoal, increment, resetDaily, deleteGoal)
   - [ ] 4.2 Implement LayoutContext for grid layout state and persistence
   - [ ] 4.3 Create TodoContext with CRUD operations for todo items

@@ -35,60 +35,60 @@ export const GoalSection: React.FC<GoalSectionProps> = ({
   const getSectionColor = (type: Goal['goal_type']) => {
     switch (type) {
       case 'daily':
-        return 'border-blue-200 bg-blue-50';
+        return 'border-indigo-200 bg-indigo-50 dark:border-indigo-900/40 dark:bg-indigo-950/20';
       case 'weekly':
-        return 'border-green-200 bg-green-50';
+        return 'border-indigo-200 bg-indigo-50 dark:border-indigo-900/40 dark:bg-indigo-950/20';
       case 'monthly':
-        return 'border-yellow-200 bg-yellow-50';
+        return 'border-indigo-200 bg-indigo-50 dark:border-indigo-900/40 dark:bg-indigo-950/20';
       case 'yearly':
-        return 'border-purple-200 bg-purple-50';
+        return 'border-indigo-200 bg-indigo-50 dark:border-indigo-900/40 dark:bg-indigo-950/20';
       default:
-        return 'border-gray-200 bg-gray-50';
+        return 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40';
     }
   };
 
   const getHeaderColor = (type: Goal['goal_type']) => {
     switch (type) {
       case 'daily':
-        return 'text-blue-700 border-blue-300';
+        return 'text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800';
       case 'weekly':
-        return 'text-green-700 border-green-300';
+        return 'text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800';
       case 'monthly':
-        return 'text-yellow-700 border-yellow-300';
+        return 'text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800';
       case 'yearly':
-        return 'text-purple-700 border-purple-300';
+        return 'text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800';
       default:
-        return 'text-gray-700 border-gray-300';
+        return 'text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700';
     }
   };
 
   const getAddButtonColor = (type: Goal['goal_type']) => {
     switch (type) {
       case 'daily':
-        return 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-500';
+        return 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500';
       case 'weekly':
-        return 'bg-green-500 hover:bg-green-600 focus:ring-green-500';
+        return 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500';
       case 'monthly':
-        return 'bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-500';
+        return 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500';
       case 'yearly':
-        return 'bg-purple-500 hover:bg-purple-600 focus:ring-purple-500';
+        return 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500';
       default:
-        return 'bg-gray-500 hover:bg-gray-600 focus:ring-gray-500';
+        return 'bg-slate-600 hover:bg-slate-700 focus:ring-slate-500';
     }
   };
 
   return (
-    <div className={`rounded-lg border-2 ${getSectionColor(goalType)} transition-all duration-200`}>
+    <div className={`rounded-lg border ${getSectionColor(goalType)} transition-all duration-200`}>
       {/* Collapsible Header */}
       <div
-        className={`flex items-center justify-between p-4 cursor-pointer border-b-2 ${getHeaderColor(goalType)} hover:bg-opacity-75 transition-colors duration-150`}
+        className={`flex items-center justify-between p-4 cursor-pointer border-b ${getHeaderColor(goalType)} hover:bg-white/40 dark:hover:bg-slate-800/40 transition-colors duration-150`}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold capitalize">
+          <h2 className="text-xl font-semibold capitalize">
             {title}
           </h2>
-          <span className="text-sm font-medium px-2 py-1 rounded-full bg-white bg-opacity-50">
+          <span className="text-sm font-medium px-2 py-1 rounded-full bg-white/60 dark:bg-slate-800/60">
             {sectionGoals.length} {sectionGoals.length === 1 ? 'goal' : 'goals'}
           </span>
         </div>
@@ -100,7 +100,7 @@ export const GoalSection: React.FC<GoalSectionProps> = ({
               e.stopPropagation();
               handleAddGoal();
             }}
-            className={`${getAddButtonColor(goalType)} text-white p-2 rounded-lg shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2`}
+            className={`${getAddButtonColor(goalType)} text-white p-2 rounded-lg shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900`}
             title={`Add ${goalType} goal`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,9 +140,9 @@ export const GoalSection: React.FC<GoalSectionProps> = ({
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-slate-500 dark:text-slate-300">
                 <p className="text-sm">No {goalType} goals yet</p>
-                <p className="text-xs text-gray-400 mt-1">Click the + button to add your first goal</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Click the + button to add your first goal</p>
               </div>
             )}
           </div>

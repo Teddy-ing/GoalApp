@@ -1,5 +1,52 @@
 import SqlDatabase from '@tauri-apps/plugin-sql';
 
+// Detect if running inside Tauri (native shell) vs plain browser (e.g., Playwright MCP)
+function isTauriAvailable(): boolean {
+  // Tauri v2 exposes __TAURI__ on window
+  return typeof window !== 'undefined' && Boolean((window as any).__TAURI__);
+}
+
+// Lightweight browser-only storage fallback (used when Tauri is not available)
+// This enables UI testing in a regular browser without native plugins.
+const STORAGE_KEYS = {
+  goals: 'goalapp_goals',
+  goalIdCounter: 'goalapp_goal_id_counter',
+  notes: 'goalapp_notes',
+} as const;
+
+function readGoalsFromStorage(): Goal[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.goals);
+    return raw ? (JSON.parse(raw) as Goal[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeGoalsToStorage(goals: Goal[]): void {
+  localStorage.setItem(STORAGE_KEYS.goals, JSON.stringify(goals));
+}
+
+function nextGoalId(): number {
+  const current = Number(localStorage.getItem(STORAGE_KEYS.goalIdCounter) || '0');
+  const next = current + 1;
+  localStorage.setItem(STORAGE_KEYS.goalIdCounter, String(next));
+  return next;
+}
+
+function readNotesFromStorage(): Note | null {
+  try {
+    const content = localStorage.getItem(STORAGE_KEYS.notes) || '';
+    return { id: 1, content, updated_at: new Date().toISOString() } as Note;
+  } catch {
+    return { id: 1, content: '' } as Note;
+  }
+}
+
+function writeNotesToStorage(content: string): void {
+  localStorage.setItem(STORAGE_KEYS.notes, content);
+}
+
 // Database instance - will be initialized on first use
 let db: SqlDatabase | null = null;
 
@@ -63,31 +110,70 @@ export class GoalDB {
     targetValue: number,
     goalType: Goal['goal_type']
   ): Promise<number> {
-    const database = await getDb();
-    const result = await database.execute(
-      'INSERT INTO goals (title, description, target_value, goal_type, current_value, is_active) VALUES (?, ?, ?, ?, ?, ?)',
-      [title, description, targetValue, goalType, 0, true]
-    );
-    return result.lastInsertId || 0;
+    if (isTauriAvailable()) {
+      const database = await getDb();
+      const result = await database.execute(
+        'INSERT INTO goals (title, description, target_value, goal_type, current_value, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+        [title, description, targetValue, goalType, 0, true]
+      );
+      return result.lastInsertId || 0;
+    }
+    // Browser fallback
+    const nowIso = new Date().toISOString();
+    const goals = readGoalsFromStorage();
+    const id = nextGoalId();
+    const newGoal: Goal = {
+      id,
+      title,
+      description: description || undefined,
+      target_value: targetValue,
+      current_value: 0,
+      goal_type: goalType,
+      is_active: true,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+    writeGoalsToStorage([newGoal, ...goals]);
+    return id;
   }
 
   /**
    * Get all active goals from the database
    */
   static async getGoals(): Promise<Goal[]> {
-    const database = await getDb();
-    return await database.select<Goal[]>('SELECT * FROM goals WHERE is_active = ? ORDER BY created_at DESC', [true]);
+    if (isTauriAvailable()) {
+      const database = await getDb();
+      return await database.select<Goal[]>('SELECT * FROM goals WHERE is_active = ? ORDER BY created_at DESC', [true]);
+    }
+    // Browser fallback
+    const goals = readGoalsFromStorage();
+    return goals
+      .filter(g => g.is_active)
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   }
 
   /**
    * Increment a goal's current value
    */
   static async incrementGoal(goalId: number, amount: number): Promise<void> {
-    const database = await getDb();
-    await database.execute(
-      'UPDATE goals SET current_value = current_value + ?, updated_at = datetime("now") WHERE id = ?',
-      [amount, goalId]
-    );
+    if (isTauriAvailable()) {
+      const database = await getDb();
+      await database.execute(
+        'UPDATE goals SET current_value = current_value + ?, updated_at = datetime("now") WHERE id = ?',
+        [amount, goalId]
+      );
+      return;
+    }
+    // Browser fallback
+    const goals = readGoalsFromStorage();
+    const idx = goals.findIndex(g => g.id === goalId);
+    if (idx >= 0) {
+      const updated = { ...goals[idx] } as Goal;
+      updated.current_value = (updated.current_value || 0) + amount;
+      updated.updated_at = new Date().toISOString();
+      goals[idx] = updated;
+      writeGoalsToStorage(goals);
+    }
   }
 
   /**
@@ -99,11 +185,26 @@ export class GoalDB {
     description: string | null,
     targetValue: number
   ): Promise<void> {
-    const database = await getDb();
-    await database.execute(
-      'UPDATE goals SET title = ?, description = ?, target_value = ?, updated_at = datetime("now") WHERE id = ?',
-      [title, description, targetValue, goalId]
-    );
+    if (isTauriAvailable()) {
+      const database = await getDb();
+      await database.execute(
+        'UPDATE goals SET title = ?, description = ?, target_value = ?, updated_at = datetime("now") WHERE id = ?',
+        [title, description, targetValue, goalId]
+      );
+      return;
+    }
+    // Browser fallback
+    const goals = readGoalsFromStorage();
+    const idx = goals.findIndex(g => g.id === goalId);
+    if (idx >= 0) {
+      const updated = { ...goals[idx] } as Goal;
+      updated.title = title;
+      updated.description = description || undefined;
+      updated.target_value = targetValue;
+      updated.updated_at = new Date().toISOString();
+      goals[idx] = updated;
+      writeGoalsToStorage(goals);
+    }
   }
 
   /**
@@ -111,22 +212,33 @@ export class GoalDB {
    */
   static async deleteGoal(goalId: number): Promise<void> {
     console.log('GoalDB.deleteGoal called with goalId:', goalId);
-    const database = await getDb();
-    const result = await database.execute(
-      'UPDATE goals SET is_active = ?, updated_at = datetime("now") WHERE id = ?',
-      [false, goalId]
-    );
-    console.log('Delete query result:', result);
-    
-    // Verify the goal was actually updated
-    const verifyResult = await database.select<{count: number}[]>(
-      'SELECT COUNT(*) as count FROM goals WHERE id = ? AND is_active = ?',
-      [goalId, false]
-    );
-    console.log('Verification query result:', verifyResult);
-    
-    if (verifyResult.length === 0 || verifyResult[0].count === 0) {
-      throw new Error('Goal was not successfully marked as inactive');
+    if (isTauriAvailable()) {
+      const database = await getDb();
+      const result = await database.execute(
+        'UPDATE goals SET is_active = ?, updated_at = datetime("now") WHERE id = ?',
+        [false, goalId]
+      );
+      console.log('Delete query result:', result);
+      // Verify the goal was actually updated
+      const verifyResult = await database.select<{ count: number }[]>(
+        'SELECT COUNT(*) as count FROM goals WHERE id = ? AND is_active = ?',
+        [goalId, false]
+      );
+      console.log('Verification query result:', verifyResult);
+      if (verifyResult.length === 0 || verifyResult[0].count === 0) {
+        throw new Error('Goal was not successfully marked as inactive');
+      }
+      return;
+    }
+    // Browser fallback
+    const goals = readGoalsFromStorage();
+    const idx = goals.findIndex(g => g.id === goalId);
+    if (idx >= 0) {
+      const updated = { ...goals[idx] } as Goal;
+      updated.is_active = false;
+      updated.updated_at = new Date().toISOString();
+      goals[idx] = updated;
+      writeGoalsToStorage(goals);
     }
   }
 
@@ -134,11 +246,22 @@ export class GoalDB {
    * Reset all daily goals current_value to 0
    */
   static async resetDailyGoals(): Promise<void> {
-    const database = await getDb();
-    await database.execute(
-      'UPDATE goals SET current_value = 0, updated_at = datetime("now") WHERE goal_type = ? AND is_active = ?',
-      ['daily', true]
-    );
+    if (isTauriAvailable()) {
+      const database = await getDb();
+      await database.execute(
+        'UPDATE goals SET current_value = 0, updated_at = datetime("now") WHERE goal_type = ? AND is_active = ?',
+        ['daily', true]
+      );
+      return;
+    }
+    // Browser fallback
+    const goals = readGoalsFromStorage().map(g => {
+      if (g.goal_type === 'daily' && g.is_active) {
+        return { ...g, current_value: 0, updated_at: new Date().toISOString() } as Goal;
+      }
+      return g;
+    });
+    writeGoalsToStorage(goals);
   }
 }
 
@@ -232,20 +355,29 @@ export class NotesDB {
    * Save notes content (replaces existing notes)
    */
   static async saveNotes(content: string): Promise<void> {
-    const database = await getDb();
-    await database.execute(
-      'INSERT OR REPLACE INTO notes (id, content, updated_at) VALUES (1, ?, datetime("now"))',
-      [content]
-    );
+    if (isTauriAvailable()) {
+      const database = await getDb();
+      await database.execute(
+        'INSERT OR REPLACE INTO notes (id, content, updated_at) VALUES (1, ?, datetime("now"))',
+        [content]
+      );
+      return;
+    }
+    // Browser fallback
+    writeNotesToStorage(content);
   }
 
   /**
    * Get the current notes content
    */
   static async getNotes(): Promise<Note | null> {
-    const database = await getDb();
-    const results = await database.select<Note[]>('SELECT * FROM notes WHERE id = 1');
-    return results.length > 0 ? results[0] : null;
+    if (isTauriAvailable()) {
+      const database = await getDb();
+      const results = await database.select<Note[]>('SELECT * FROM notes WHERE id = 1');
+      return results.length > 0 ? results[0] : null;
+    }
+    // Browser fallback
+    return readNotesFromStorage();
   }
 }
 
